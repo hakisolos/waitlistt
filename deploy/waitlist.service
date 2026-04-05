@@ -1,0 +1,15 @@
+[unit]
+Description=Sparkdb waitlist
+After=network.target
+
+[service]
+User=root
+WorkingDirectory=/root/waitlistt                                                    
+ExecStart=/usr/bin/make start
+Restart=always
+RestartSec=3
+
+[install]
+WantedBy=multi-user.target                                                                                                                                                                                                  
+
+#worng btw.

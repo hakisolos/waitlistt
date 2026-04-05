@@ -10,3 +10,4 @@ certbot --nginx -d waitlist-backend.sparkdb.pro
 
 ufw deny 4000
 
+.

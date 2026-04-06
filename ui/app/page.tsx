@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 type Status = "idle" | "loading" | "success" | "conflict" | "error";
 
@@ -9,7 +9,6 @@ export default function SparkDBPage() {
   const [status, setStatus] = useState<Status>("idle");
   const [dark, setDark] = useState(false);
 
-  // Respect system preference on first load
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     setDark(mq.matches);
@@ -20,25 +19,27 @@ export default function SparkDBPage() {
 
   const d = dark;
 
-  // ── colour tokens ──────────────────────────────────────────────
-  const bg         = d ? "#0d0d12" : "#f5f3ff";
-  const surface    = d ? "#15151f" : "#ffffff";
-  const surface2   = d ? "#1c1c2a" : "#faf9ff";
-  const border     = d ? "#2a2a3d" : "#ede9fe";
-  const border2    = d ? "#222233" : "#f3f4f6";
-  const textMain   = d ? "#f0eeff" : "#18181b";
-  const textSub    = d ? "#8b8aac" : "#6b7280";
-  const purple     = "#7c3aed";
-  const purpleL    = d ? "#ede9fe1a" : "#ede9fe";
-  const purplePill = d ? "#1e1535" : "#ede9fe";
-  const purplePillB= d ? "#3b2f6e" : "#ddd6fe";
-  const purplePillT= d ? "#c4b5fd" : "#6d28d9";
-  const inputBg    = d ? "#0f0f1a" : "#fafafa";
-  const inputBdr   = d ? "#2e2e45" : "#e5e7eb";
-  const dbRowBg    = d ? "#13131e" : "#fafafa";
-  const sidebarBg  = d ? "#11111b" : "#faf9ff";
-  const winBg      = d ? "#0e0e18" : "#faf9ff";
-  const statBdr    = d ? "#1e1e2e" : "#f3f4f6";
+  // ── colour tokens (memoised so they don't recompute every keystroke) ──
+  const t = useMemo(() => ({
+    bg:          d ? "#0d0d12" : "#f5f3ff",
+    surface:     d ? "#15151f" : "#ffffff",
+    surface2:    d ? "#1c1c2a" : "#faf9ff",
+    border:      d ? "#2a2a3d" : "#ede9fe",
+    border2:     d ? "#222233" : "#f3f4f6",
+    textMain:    d ? "#f0eeff" : "#18181b",
+    textSub:     d ? "#8b8aac" : "#6b7280",
+    purple:      "#7c3aed",
+    purpleL:     d ? "#ede9fe1a" : "#ede9fe",
+    purplePill:  d ? "#1e1535" : "#ede9fe",
+    purplePillB: d ? "#3b2f6e" : "#ddd6fe",
+    purplePillT: d ? "#c4b5fd" : "#6d28d9",
+    inputBg:     d ? "#0f0f1a" : "#fafafa",
+    inputBdr:    d ? "#2e2e45" : "#e5e7eb",
+    dbRowBg:     d ? "#13131e" : "#fafafa",
+    sidebarBg:   d ? "#11111b" : "#faf9ff",
+    winBg:       d ? "#0e0e18" : "#faf9ff",
+    statBdr:     d ? "#1e1e2e" : "#f3f4f6",
+  }), [d]);
 
   async function handleSubmit() {
     if (!email || !email.includes("@")) return;
@@ -67,7 +68,7 @@ export default function SparkDBPage() {
   }
 
   const btnLabel =
-    status === "loading" ? "Joining…"      :
+    status === "loading" ? "Joining…"       :
     status === "success"  ? "You're in! 🎉" :
     "Join Waitlist";
 
@@ -80,86 +81,140 @@ export default function SparkDBPage() {
   return (
     <>
       <style>{`
+        /* ── HARD RESET ── */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html { -webkit-text-size-adjust: 100%; }
+
+        /* FIX: clamp overflow at the html level so nothing can bleed past the viewport */
+        html, body {
+          overflow-x: hidden;
+          max-width: 100%;
+          -webkit-text-size-adjust: 100%;
+          /* prevent iOS rubber-band horizontal bounce revealing overflow */
+          overscroll-behavior-x: none;
+        }
 
         .sparkdb-root {
           min-height: 100vh;
-          background: ${bg};
+          width: 100%;
+          /* FIX: clip children that poke outside (sparkles, dashed arcs) */
+          overflow-x: clip;
+          background: ${t.bg};
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
           position: relative;
-          overflow-x: hidden;
           transition: background 0.3s;
         }
 
-        /* TOGGLE */
+        /* ── TOGGLE ── */
         .dm-toggle {
           position: fixed; top: 14px; right: 14px; z-index: 100;
           width: 38px; height: 38px; border-radius: 50%;
-          border: 1.5px solid ${border}; background: ${surface};
+          border: 1.5px solid ${t.border}; background: ${t.surface};
           cursor: pointer; display: flex; align-items: center; justify-content: center;
           font-size: 16px; transition: background 0.3s, border-color 0.3s;
           -webkit-tap-highlight-color: transparent;
+          /* FIX: ensure toggle never causes overflow */
+          flex-shrink: 0;
         }
 
-        /* HEADER */
+        /* ── HEADER ── */
         .header {
           display: flex; align-items: center; justify-content: center;
-          padding: 36px 24px 8px;
+          /* FIX: right padding accounts for fixed toggle button (38px + 14px gap + 8px buffer) */
+          padding: 36px 70px 8px 24px;
         }
         .logo-wrap { display: flex; align-items: center; gap: 8px; }
-        .logo-img  { width: 38px; height: 38px; object-fit: contain; }
-        .logo-text { font-size: 24px; font-weight: 800; color: ${textMain}; letter-spacing: -0.5px; }
-        .logo-text span { color: ${purple}; }
+        .logo-img  { width: 38px; height: 38px; object-fit: contain; flex-shrink: 0; }
+        .logo-text { font-size: 24px; font-weight: 800; color: ${t.textMain}; letter-spacing: -0.5px; }
+        .logo-text span { color: ${t.purple}; }
 
-        /* HERO */
+        /* ── HERO ── */
         .hero {
           display: flex; flex-direction: column; align-items: center;
-          text-align: center; padding: 28px 20px 0;
+          text-align: center;
+          /* FIX: horizontal padding prevents text touching screen edge on narrow screens */
+          padding: 28px 20px 0;
+          /* FIX: constrain width so nothing can be wider than the viewport */
+          width: 100%;
         }
+
         .pill {
           display: inline-flex; align-items: center; gap: 7px;
-          background: ${purplePill}; border: 1px solid ${purplePillB};
+          background: ${t.purplePill}; border: 1px solid ${t.purplePillB};
           border-radius: 999px; padding: 5px 16px; margin-bottom: 26px;
+          /* FIX: allow pill to shrink on very narrow screens */
+          max-width: 100%;
         }
-        .pill-dot { width: 8px; height: 8px; border-radius: 50%; background: ${purple}; flex-shrink: 0; }
-        .pill-text { font-size: 11px; font-weight: 700; color: ${purplePillT}; letter-spacing: 0.09em; text-transform: uppercase; }
+        .pill-dot  { width: 8px; height: 8px; border-radius: 50%; background: ${t.purple}; flex-shrink: 0; }
+        .pill-text { font-size: 11px; font-weight: 700; color: ${t.purplePillT}; letter-spacing: 0.09em; text-transform: uppercase; }
 
-        .h1-black  { font-size: clamp(32px, 8vw, 70px); font-weight: 800; line-height: 1.07; color: ${textMain}; letter-spacing: -1.5px; }
-        .h1-purple { font-size: clamp(32px, 8vw, 70px); font-weight: 800; line-height: 1.07; color: ${purple}; letter-spacing: -1.5px; margin-bottom: 20px; }
+        .h1-black  {
+          font-size: clamp(28px, 7.5vw, 70px); font-weight: 800; line-height: 1.07;
+          color: ${t.textMain}; letter-spacing: -1.5px;
+          /* FIX: prevent long words from blowing out the layout */
+          word-break: break-word;
+        }
+        .h1-purple {
+          font-size: clamp(28px, 7.5vw, 70px); font-weight: 800; line-height: 1.07;
+          color: ${t.purple}; letter-spacing: -1.5px; margin-bottom: 20px;
+          word-break: break-word;
+        }
 
-        .subtext { font-size: 15px; color: ${textSub}; line-height: 1.65; max-width: 440px; margin-bottom: 36px; }
+        .subtext {
+          font-size: 15px; color: ${t.textSub}; line-height: 1.65;
+          max-width: 440px; margin-bottom: 36px;
+          /* FIX: don't let it exceed the viewport */
+          width: 100%;
+        }
 
-        /* FORM CARD */
+        /* ── FORM CARD ── */
         .form-card {
-          background: ${surface};
+          background: ${t.surface};
           border-radius: 18px;
           box-shadow: ${d
             ? "0 4px 40px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.04) inset"
             : "0 4px 32px rgba(124,58,237,0.08), 0 1px 4px rgba(0,0,0,0.06)"};
           padding: 26px 28px 22px;
-          width: 100%; max-width: 540px; margin-bottom: 48px;
-          border: 1px solid ${border};
+          /* FIX: use calc so horizontal margin is never omitted — card never bleeds to edge */
+          width: min(100%, 540px);
+          margin-bottom: 48px;
+          border: 1px solid ${t.border};
         }
-        .input-row { display: flex; gap: 10px; margin-bottom: 16px; }
+
+        .input-row {
+          display: flex; gap: 10px; margin-bottom: 16px;
+          /* FIX: allow wrapping on narrow screens as fallback behind the media-query stack */
+          flex-wrap: wrap;
+        }
+
         .input-wrap {
-          flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px;
-          border: 1.5px solid ${inputBdr}; border-radius: 10px;
-          padding: 0 13px; background: ${inputBg}; transition: border-color 0.2s;
+          /* FIX: flex: 1 1 0 + min-width: 0 prevents the input from overflowing its container */
+          flex: 1 1 0; min-width: 0;
+          display: flex; align-items: center; gap: 9px;
+          border: 1.5px solid ${t.inputBdr}; border-radius: 10px;
+          padding: 0 13px; background: ${t.inputBg}; transition: border-color 0.2s;
+          /* FIX: guarantee a minimum comfortable tap height */
+          min-height: 48px;
         }
-        .input-wrap:focus-within { border-color: ${purple}; }
+        .input-wrap:focus-within { border-color: ${t.purple}; }
+
         .email-input {
           border: none; outline: none; background: transparent;
-          font-size: 14px; color: ${textMain}; width: 100%;
+          font-size: 14px; color: ${t.textMain};
+          /* FIX: width: 100% ensures the input fills its flex parent, not just auto */
+          width: 100%; min-width: 0;
           padding: 13px 0; font-family: inherit; -webkit-appearance: none;
         }
-        .email-input::placeholder { color: ${textSub}; }
+        .email-input::placeholder { color: ${t.textSub}; }
 
         .join-btn {
-          background: ${purple}; color: #fff; border: none; border-radius: 10px;
+          background: ${t.purple}; color: #fff; border: none; border-radius: 10px;
           padding: 0 20px; font-size: 14px; font-weight: 600; cursor: pointer;
-          display: flex; align-items: center; gap: 7px;
-          white-space: nowrap; font-family: inherit; height: 46px; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center; gap: 7px;
+          white-space: nowrap; font-family: inherit;
+          /* FIX: fixed height matches input height exactly */
+          height: 48px;
+          /* FIX: flex-shrink: 0 stops button from being squished by the input */
+          flex-shrink: 0;
           -webkit-tap-highlight-color: transparent; transition: opacity 0.15s;
         }
         .join-btn:disabled { opacity: 0.65; cursor: not-allowed; }
@@ -171,110 +226,181 @@ export default function SparkDBPage() {
         .badge  { display: flex; align-items: center; gap: 7px; }
         .badge-icon {
           width: 28px; height: 28px; border-radius: 8px;
-          background: ${purpleL}; border: 1px solid ${border};
+          background: ${t.purpleL}; border: 1px solid ${t.border};
           display: flex; align-items: center; justify-content: center; flex-shrink: 0;
         }
-        .badge-label { font-size: 13px; color: ${textSub}; font-weight: 500; }
+        .badge-label { font-size: 13px; color: ${t.textSub}; font-weight: 500; }
 
-        /* MOCKUP */
-        .mockup-wrap { display: flex; justify-content: center; padding: 0 16px 64px; }
+        /* ── DASHBOARD MOCKUP ── */
+        .mockup-wrap {
+          display: flex; justify-content: center;
+          /* FIX: symmetric horizontal padding + extra bottom room */
+          padding: 0 16px 64px;
+          width: 100%;
+        }
+
         .mockup {
-          width: 100%; max-width: 820px; background: ${surface};
+          width: 100%; max-width: 820px; background: ${t.surface};
           border-radius: 18px;
           box-shadow: ${d
             ? "0 8px 60px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.05) inset"
             : "0 8px 48px rgba(124,58,237,0.10), 0 2px 8px rgba(0,0,0,0.06)"};
-          overflow: hidden; border: 1px solid ${border};
+          /* FIX: clip children (sidebar, rows) that might overflow the rounded card */
+          overflow: hidden;
+          border: 1px solid ${t.border};
+          /* FIX: prevent mockup itself from being wider than available space */
+          min-width: 0;
         }
-        .win-chrome {
-          height: 34px; background: ${winBg}; border-bottom: 1px solid ${border};
-          display: flex; align-items: center; padding: 0 14px; gap: 6px;
-        }
-        .chrome-dot { width: 10px; height: 10px; border-radius: 50%; }
-        .mockup-body { display: flex; }
 
-        /* SIDEBAR */
-        .sidebar {
-          width: 172px; border-right: 1px solid ${border};
-          padding: 18px 0; background: ${sidebarBg}; flex-shrink: 0;
+        .win-chrome {
+          height: 34px; background: ${t.winBg}; border-bottom: 1px solid ${t.border};
+          display: flex; align-items: center; padding: 0 14px; gap: 6px;
+          flex-shrink: 0;
         }
-        .sidebar-logo { display: flex; align-items: center; gap: 7px; padding: 0 16px; margin-bottom: 20px; }
-        .sidebar-logo img { width: 20px; height: 20px; object-fit: contain; }
-        .sidebar-logo-text { font-weight: 800; font-size: 14px; color: ${textMain}; }
-        .sidebar-logo-text span { color: ${purple}; }
+        .chrome-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+        .mockup-body { display: flex; min-width: 0; }
+
+        /* ── SIDEBAR ── */
+        .sidebar {
+          /* FIX: fixed width + flex-shrink: 0 — never let it collapse weirdly */
+          width: 172px; flex-shrink: 0;
+          border-right: 1px solid ${t.border};
+          padding: 18px 0; background: ${t.sidebarBg};
+          /* FIX: hidden overflow stops long nav labels from leaking */
+          overflow: hidden;
+        }
+        .sidebar-logo {
+          display: flex; align-items: center; gap: 7px;
+          padding: 0 16px; margin-bottom: 20px; overflow: hidden;
+        }
+        .sidebar-logo img { width: 20px; height: 20px; object-fit: contain; flex-shrink: 0; }
+        .sidebar-logo-text { font-weight: 800; font-size: 14px; color: ${t.textMain}; white-space: nowrap; }
+        .sidebar-logo-text span { color: ${t.purple}; }
+
         .nav-item {
           display: flex; align-items: center; gap: 8px;
           padding: 8px 16px; margin: 1px 8px; border-radius: 8px;
-          font-size: 12.5px; font-weight: 500; cursor: pointer; color: ${textSub};
+          font-size: 12.5px; font-weight: 500; cursor: pointer; color: ${t.textSub};
+          white-space: nowrap; overflow: hidden;
         }
-        .nav-item.active { background: ${d ? "#2a1f5e" : "#ede9fe"}; color: ${purple}; font-weight: 600; }
+        .nav-item.active { background: ${d ? "#2a1f5e" : "#ede9fe"}; color: ${t.purple}; font-weight: 600; }
 
-        /* DASH MAIN */
-        .dash-main { flex: 1; padding: 18px 20px; min-width: 0; }
-        .dash-topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-        .dash-title { font-weight: 700; font-size: 15px; color: ${textMain}; }
+        /* ── DASH MAIN ── */
+        .dash-main {
+          flex: 1; padding: 18px 20px;
+          /* FIX: critical — without min-width: 0 a flex child ignores its parent's width
+             and overflows, which was the root cause of the horizontal scroll bug */
+          min-width: 0;
+          overflow: hidden;
+        }
+        .dash-topbar {
+          display: flex; justify-content: space-between; align-items: center;
+          margin-bottom: 16px; gap: 8px;
+        }
+        .dash-title { font-weight: 700; font-size: 15px; color: ${t.textMain}; white-space: nowrap; }
         .new-db-btn {
-          background: ${purple}; color: #fff; border: none; border-radius: 7px;
+          background: ${t.purple}; color: #fff; border: none; border-radius: 7px;
           padding: 6px 12px; font-size: 11.5px; font-weight: 600;
-          cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 4px;
+          cursor: pointer; font-family: inherit;
+          display: flex; align-items: center; gap: 4px;
+          white-space: nowrap; flex-shrink: 0;
         }
 
-        /* STATS */
+        /* ── STATS ── */
         .stats-grid {
           display: grid; grid-template-columns: repeat(4, 1fr);
-          border: 1px solid ${statBdr}; border-radius: 10px;
+          border: 1px solid ${t.statBdr}; border-radius: 10px;
           overflow: hidden; margin-bottom: 18px;
         }
-        .stat-cell { padding: 13px 14px; border-right: 1px solid ${statBdr}; }
+        .stat-cell {
+          padding: 13px 14px; border-right: 1px solid ${t.statBdr};
+          /* FIX: prevent text from overflowing stat cell */
+          overflow: hidden; min-width: 0;
+        }
         .stat-cell:last-child { border-right: none; }
-        .stat-val { font-size: 19px; font-weight: 800; color: ${purple}; letter-spacing: -0.5px; margin-bottom: 1px; }
-        .stat-lbl { font-size: 10px; color: ${textSub}; margin-bottom: 1px; }
-        .stat-sub { font-size: 10px; font-weight: 500; }
+        .stat-val {
+          font-size: clamp(14px, 3vw, 19px); font-weight: 800;
+          color: ${t.purple}; letter-spacing: -0.5px; margin-bottom: 1px;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .stat-lbl { font-size: 10px; color: ${t.textSub}; margin-bottom: 1px; white-space: nowrap; }
+        .stat-sub { font-size: 10px; font-weight: 500; white-space: nowrap; }
 
-        .db-section-lbl { font-size: 12px; font-weight: 600; color: ${textMain}; margin-bottom: 10px; }
+        /* ── DB ROWS ── */
+        .db-section-lbl { font-size: 12px; font-weight: 600; color: ${t.textMain}; margin-bottom: 10px; }
         .db-row {
           display: flex; align-items: center; padding: 9px 12px;
-          border-radius: 8px; border: 1px solid ${border2};
-          margin-bottom: 7px; background: ${dbRowBg}; gap: 10px;
+          border-radius: 8px; border: 1px solid ${t.border2};
+          margin-bottom: 7px; background: ${t.dbRowBg}; gap: 10px;
+          /* FIX: prevent row from stretching past its container */
+          min-width: 0; overflow: hidden;
         }
         .db-icon-wrap {
           width: 28px; height: 28px; border-radius: 7px;
           display: flex; align-items: center; justify-content: center;
           font-size: 14px; flex-shrink: 0;
         }
-        .db-name   { font-weight: 600; font-size: 12px; color: ${textMain}; min-width: 80px; }
-        .db-engine { font-size: 11px; color: ${textSub}; flex: 1; }
-        .db-region { font-size: 11px; color: ${textSub}; min-width: 72px; }
+        .db-name   { font-weight: 600; font-size: 12px; color: ${t.textMain}; min-width: 0; flex-shrink: 0; width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .db-engine { font-size: 11px; color: ${t.textSub}; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .db-region { font-size: 11px; color: ${t.textSub}; flex-shrink: 0; white-space: nowrap; }
         .db-pill   {
           background: ${d ? "#14301e" : "#dcfce7"}; color: ${d ? "#4ade80" : "#16a34a"};
           font-size: 10px; font-weight: 600; padding: 3px 9px;
-          border-radius: 999px; flex-shrink: 0;
+          border-radius: 999px; flex-shrink: 0; white-space: nowrap;
         }
-        .db-dots { border: none; background: none; color: ${textSub}; font-size: 16px; cursor: pointer; padding: 0; line-height: 1; flex-shrink: 0; }
+        .db-dots {
+          border: none; background: none; color: ${t.textSub};
+          font-size: 16px; cursor: pointer; padding: 0; line-height: 1; flex-shrink: 0;
+        }
 
-        /* SPARKLE */
+        /* ── DECORATIVE ── */
         .sparkle { position: absolute; pointer-events: none; opacity: ${d ? 0.3 : 0.5}; }
 
         /* ── RESPONSIVE ── */
+
+        /* Tablet / large mobile: hide sidebar, 2-col stats */
         @media (max-width: 700px) {
           .sidebar { display: none; }
-          .stats-grid { grid-template-columns: repeat(2, 1fr); }
-          .stat-cell:nth-child(2) { border-right: none; }
-          .stat-cell:nth-child(3) { border-top: 1px solid ${statBdr}; }
-          .stat-cell:nth-child(4) { border-top: 1px solid ${statBdr}; border-right: none; }
+
+          .stats-grid {
+            /* FIX: 2×2 grid — explicit border resets so no cell has a double-border */
+            grid-template-columns: repeat(2, 1fr);
+          }
+          /* Clear the right-border on col-2 cells */
+          .stat-cell:nth-child(2n) { border-right: none; }
+          /* Add top-border on the second row */
+          .stat-cell:nth-child(3),
+          .stat-cell:nth-child(4) { border-top: 1px solid ${t.statBdr}; }
+
           .db-region { display: none; }
         }
 
+        /* Small mobile: stack form, tighter spacing */
         @media (max-width: 520px) {
-          .header { padding: 22px 16px 4px; }
+          .header { padding: 22px 60px 4px 16px; }
           .logo-text { font-size: 20px; }
           .hero { padding: 18px 16px 0; }
           .subtext { font-size: 14px; }
-          .form-card { padding: 18px 14px 16px; border-radius: 14px; }
+
+          .form-card {
+            padding: 18px 14px 16px; border-radius: 14px;
+            /* FIX: use calc to guarantee a safe margin from each edge */
+            width: calc(100% - 0px);
+          }
+          /* FIX: stack input + button vertically on small screens */
           .input-row { flex-direction: column; gap: 10px; }
-          .join-btn { width: 100%; justify-content: center; height: 50px; font-size: 15px; border-radius: 12px; }
+          /* FIX: when stacked, input-wrap must be full width */
+          .input-wrap { width: 100%; flex: none; }
+          /* FIX: button must also be full width and tall enough for easy tapping */
+          .join-btn {
+            width: 100%; justify-content: center;
+            height: 52px; font-size: 15px; border-radius: 12px;
+          }
+
           .badges { gap: 14px; }
           .badge-label { font-size: 12px; }
+
           .mockup-wrap { padding: 0 10px 44px; }
           .dash-main { padding: 14px 10px; }
           .db-engine { display: none; }
@@ -283,10 +409,14 @@ export default function SparkDBPage() {
           .dm-toggle { top: 10px; right: 10px; width: 34px; height: 34px; font-size: 14px; }
         }
 
+        /* Very narrow (360px and below) */
         @media (max-width: 360px) {
-          .h1-black, .h1-purple { font-size: 26px; letter-spacing: -0.8px; }
+          .h1-black, .h1-purple { font-size: 24px; letter-spacing: -0.5px; }
           .badges { flex-direction: column; align-items: center; gap: 10px; }
-          .db-name { min-width: 60px; font-size: 11px; }
+          .db-name { width: 60px; font-size: 11px; }
+          .stat-val { font-size: 13px; }
+          .dash-main { padding: 10px 8px; }
+          .db-row { padding: 8px; gap: 6px; }
         }
       `}</style>
 
@@ -295,39 +425,37 @@ export default function SparkDBPage() {
         {/* Dark mode toggle */}
         <button className="dm-toggle" onClick={() => setDark(!d)} aria-label="Toggle dark mode">
           {d ? (
-            // Sun icon
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={textMain} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={t.textMain} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="4"/>
               <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
             </svg>
           ) : (
-            // Moon icon
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={textMain} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.textMain} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
             </svg>
           )}
         </button>
 
-        {/* Sparkles */}
+        {/* Sparkles — kept inside overflow: clip container so they never cause scroll */}
         {[
-          { top: "5%",  left: "7%",  size: 11 },
-          { top: "3%",  left: "80%", size: 9  },
-          { top: "18%", left: "93%", size: 13 },
-          { top: "14%", left: "20%", size: 7  },
-          { top: "55%", left: "2%",  size: 8  },
-          { top: "70%", left: "97%", size: 10 },
+          { top: "5%",  left: "5%",   size: 11 },
+          { top: "3%",  left: "78%",  size: 9  },
+          { top: "18%", left: "92%",  size: 13 },
+          { top: "14%", left: "18%",  size: 7  },
+          { top: "55%", left: "2%",   size: 8  },
+          { top: "70%", left: "95%",  size: 10 },
         ].map((s, i) => (
-          <svg key={i} className="sparkle" style={{ top: s.top, left: s.left }} width={s.size} height={s.size} viewBox="0 0 24 24" fill={purple}>
+          <svg key={i} className="sparkle" style={{ top: s.top, left: s.left }} width={s.size} height={s.size} viewBox="0 0 24 24" fill={t.purple}>
             <path d="M12 2l2.4 7.6H22l-6.2 4.5 2.4 7.6L12 17.2l-6.2 4.5 2.4-7.6L2 9.6h7.6z"/>
           </svg>
         ))}
 
         {/* Dashed arcs */}
         <svg style={{ position:"absolute", top:56, left:56, opacity: d ? 0.1 : 0.2, pointerEvents:"none" }} width="190" height="190" viewBox="0 0 200 200" fill="none">
-          <path d="M 180 20 Q 20 20 20 180" stroke={purple} strokeWidth="1.5" strokeDasharray="6 6" fill="none"/>
+          <path d="M 180 20 Q 20 20 20 180" stroke={t.purple} strokeWidth="1.5" strokeDasharray="6 6" fill="none"/>
         </svg>
         <svg style={{ position:"absolute", top:170, right:36, opacity: d ? 0.08 : 0.16, pointerEvents:"none" }} width="170" height="170" viewBox="0 0 180 180" fill="none">
-          <path d="M 20 160 Q 160 160 160 20" stroke={purple} strokeWidth="1.5" strokeDasharray="6 6" fill="none"/>
+          <path d="M 20 160 Q 160 160 160 20" stroke={t.purple} strokeWidth="1.5" strokeDasharray="6 6" fill="none"/>
         </svg>
 
         {/* ── HEADER ── */}
@@ -357,7 +485,7 @@ export default function SparkDBPage() {
           <div className="form-card">
             <div className="input-row">
               <div className="input-wrap">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={textSub} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.textSub} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                   <rect x="2" y="4" width="20" height="16" rx="2"/>
                   <path d="M2 7l10 7 10-7"/>
                 </svg>
@@ -395,9 +523,9 @@ export default function SparkDBPage() {
 
             <div className="badges">
               {[
-                { label: "Early access",    icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={purple} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> },
-                { label: "Product updates", icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={purple} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> },
-                { label: "No spam",         icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={purple} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> },
+                { label: "Early access",    icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={t.purple} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> },
+                { label: "Product updates", icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={t.purple} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> },
+                { label: "No spam",         icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={t.purple} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> },
               ].map((b) => (
                 <div className="badge" key={b.label}>
                   <div className="badge-icon">{b.icon}</div>
@@ -448,10 +576,10 @@ export default function SparkDBPage() {
 
                 <div className="stats-grid">
                   {[
-                    { val: "15",     lbl: "Databases",    sub: "Running",    sc: "#22c55e" },
-                    { val: "8",      lbl: "Connections",  sub: "Active",     sc: "#22c55e" },
-                    { val: "99.9%",  lbl: "Uptime",       sub: "This Month", sc: textSub  },
-                    { val: "320 ms", lbl: "Avg. Response", sub: "Time",      sc: textSub  },
+                    { val: "15",     lbl: "Databases",     sub: "Running",    sc: "#22c55e" },
+                    { val: "8",      lbl: "Connections",   sub: "Active",     sc: "#22c55e" },
+                    { val: "99.9%",  lbl: "Uptime",        sub: "This Month", sc: t.textSub },
+                    { val: "320 ms", lbl: "Avg. Response", sub: "Time",       sc: t.textSub },
                   ].map((s) => (
                     <div className="stat-cell" key={s.lbl}>
                       <div className="stat-val">{s.val}</div>
